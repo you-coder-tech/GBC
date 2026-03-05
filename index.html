@@ -3,120 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GBC Mini Emulator</title>
-    <script src="https://unpkg.com/gb-emulator@1.1.0/dist/gb-emulator.js"></script>
+    <title>محاكي GBC المطور</title>
+    
+    <script src="GameBoyCore.js"></script>
+
     <style>
-        :root { --main-color: #3d3d3d; --accent: #ff0055; }
-        body { font-family: sans-serif; background: #1a1a1a; color: white; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; overflow: hidden; touch-action: none; }
+        :root { --gb-color: #333; --screen-bg: #8bac0f; }
+        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; touch-action: none; }
         
-        .upload-section { display: flex; gap: 10px; width: 100%; max-width: 350px; margin-bottom: 10px; }
-        .drop-zone { flex: 1; border: 2px dashed #555; background: #222; padding: 10px; border-radius: 8px; text-align: center; font-size: 11px; cursor: pointer; }
-        .drop-zone.ready { border-color: #00ff00; background: #1b2e1b; }
+        .drop-zone { width: 90%; max-width: 400px; border: 2px dashed #555; background: #2a2a2a; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; cursor: pointer; }
+        .drop-zone.active { border-color: #00ff00; background: #223322; }
 
-        #container { position: relative; width: 320px; height: 288px; background: #000; border: 10px solid var(--main-color); border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+        /* تصميم الجهاز */
+        .emulator-body { background: #7d57bb; padding: 30px; border-radius: 20px 20px 60px 20px; box-shadow: 10px 10px 0 #000; width: 320px; }
+        .screen-frame { background: #333; padding: 20px; border-radius: 10px; margin-bottom: 20px; position: relative; }
+        #canvas-container { width: 160px; height: 144px; background: var(--screen-bg); transform: scale(1.6); transform-origin: top left; margin-bottom: 86px; }
+        canvas { image-rendering: pixelated; }
 
-        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; width: 100%; max-width: 380px; margin-top: 20px; }
-        .dpad { display: grid; grid-template-columns: repeat(3, 45px); grid-template-rows: repeat(3, 45px); }
-        .btn { background: #333; border: none; color: white; border-radius: 50%; font-weight: bold; cursor: pointer; user-select: none; box-shadow: 0 4px #000; -webkit-tap-highlight-color: transparent; }
-        .btn:active { transform: translateY(2px); box-shadow: 0 2px #000; background: #444; }
+        /* الأزرار */
+        .controls { display: flex; justify-content: space-between; align-items: center; }
+        .dpad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); }
+        .d-btn { background: #222; border: none; color: white; cursor: pointer; font-size: 20px; }
         
-        .btn-action { width: 55px; height: 55px; background: #a00; font-size: 18px; }
-        .btn-sys { height: 25px; border-radius: 10px; font-size: 9px; background: #444; margin-top: 15px; }
+        .actions { display: flex; gap: 15px; transform: rotate(-15deg); }
+        .btn-a-b { width: 50px; height: 50px; background: #a00; border-radius: 50%; border: none; color: white; font-weight: bold; box-shadow: 2px 2px 0 #500; cursor: pointer; }
         
-        #status-msg { margin-top: 10px; font-size: 12px; color: #888; }
+        .sys-btns { display: flex; gap: 20px; justify-content: center; margin-top: 30px; }
+        .btn-pill { width: 50px; height: 12px; background: #555; border-radius: 10px; border: none; transform: rotate(-15deg); cursor: pointer; }
+        .label { font-size: 9px; color: #ddd; text-align: center; margin-top: 4px; }
     </style>
 </head>
 <body>
 
-    <h3 style="margin: 5px 0;">GBC Emulator</h3>
-
-    <div class="upload-section">
-        <div id="bios-zone" class="drop-zone"><b>BIOS</b><br>(اختياري)</div>
-        <div id="rom-zone" class="drop-zone"><b>ROM</b><br>اسحب اللعبة هنا</div>
+    <div id="drop-zone" class="drop-zone">
+        <b>🎮 اسحب ملف اللعبة (.gbc) هنا للبدء</b>
     </div>
 
-    <div id="container">
-        <canvas id="screen"></canvas>
-    </div>
-
-    <div id="status-msg">بانتظار ملف اللعبة...</div>
-
-    <div class="controls">
-        <div class="dpad">
-            <div></div><button class="btn" onpointerdown="p('up')" onpointerup="r('up')">▲</button><div></div>
-            <button class="btn" onpointerdown="p('left')" onpointerup="r('left')">◀</button><div></div><button class="btn" onpointerdown="p('right')" onpointerup="r('right')">▶</button>
-            <div></div><button class="btn" onpointerdown="p('down')" onpointerup="r('down')">▼</button><div></div>
+    <div class="emulator-body">
+        <div class="screen-frame">
+            <div id="canvas-container">
+                <canvas id="mainCanvas" width="160" height="144"></canvas>
+            </div>
         </div>
 
-        <div style="display:flex; flex-direction:column; align-items:center;">
-            <button class="btn btn-sys" onpointerdown="p('select')" onpointerup="r('select')">SELECT</button>
-            <button class="btn btn-sys" onpointerdown="p('start')" onpointerup="r('start')">START</button>
+        <div class="controls">
+            <div class="dpad">
+                <div></div><button class="d-btn" onpointerdown="p(0)" onpointerup="r(0)">▲</button><div></div>
+                <button class="d-btn" onpointerdown="p(2)" onpointerup="r(2)">◀</button><div></div><button class="d-btn" onpointerdown="p(3)" onpointerup="r(3)">▶</button>
+                <div></div><button class="d-btn" onpointerdown="p(1)" onpointerup="r(1)">▼</button><div></div>
+            </div>
+
+            <div class="actions">
+                <button class="btn-a-b" onpointerdown="p(5)" onpointerup="r(5)">B</button>
+                <button class="btn-a-b" onpointerdown="p(4)" onpointerup="r(4)">A</button>
+            </div>
         </div>
 
-        <div style="display:flex; gap:10px; align-items:center;">
-            <button class="btn btn-action" onpointerdown="p('b')" onpointerup="r('b')">B</button>
-            <button class="btn btn-action" style="background:#c0392b" onpointerdown="p('a')" onpointerup="r('a')">A</button>
+        <div class="sys-btns">
+            <div><button class="btn-pill" onpointerdown="p(6)" onpointerup="r(6)"></button><div class="label">SELECT</div></div>
+            <div><button class="btn-pill" onpointerdown="p(7)" onpointerup="r(7)"></button><div class="label">START</div></div>
         </div>
     </div>
 
     <script>
-        let emulator = null;
-        let biosData = null;
+        let gb;
+        const canvas = document.getElementById('mainCanvas');
 
-        function setupZone(id, isBios) {
-            const el = document.getElementById(id);
-            el.ondragover = (e) => { e.preventDefault(); el.style.background = "#333"; };
-            el.ondragleave = () => { el.style.background = "#222"; };
-            el.ondrop = (e) => {
-                e.preventDefault();
-                const file = e.dataTransfer.files[0];
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    const data = new Uint8Array(ev.target.result);
-                    if (isBios) {
-                        biosData = data;
-                        el.innerHTML = "✅ BIOS";
-                        el.classList.add('ready');
-                    } else {
-                        document.getElementById('status-msg').innerText = "جاري التشغيل: " + file.name;
-                        el.classList.add('ready');
-                        initGame(data);
-                    }
-                };
-                reader.readAsArrayBuffer(file);
+        // التعامل مع سحب الملف
+        const zone = document.getElementById('drop-zone');
+        zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('active'); };
+        zone.ondragleave = () => zone.classList.remove('active');
+        zone.ondrop = (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                startEmulator(ev.target.result);
+                zone.style.display = 'none';
             };
-        }
+            reader.readAsBinaryString(file);
+        };
 
-        setupZone('bios-zone', true);
-        setupZone('rom-zone', false);
-
-        function initGame(rom) {
+        function startEmulator(romData) {
             try {
-                // تنظيف الشاشة قبل البدء
-                const canvas = document.getElementById('screen');
-                // بناء المحاكي (هذا يعتمد على كود المكتبة المرفقة)
-                if (window.GameBoyEmulator) {
-                    emulator = new GameBoyEmulator(canvas);
-                    emulator.start(rom, biosData);
-                } else {
-                    // حل بديل في حال تعذر تحميل المكتبة
-                    alert("خطأ: تعذر تحميل محرك المحاكي من الرابط. تأكد من الإنترنت.");
-                }
-            } catch (err) {
-                console.error(err);
-                document.getElementById('status-msg').innerText = "خطأ في ملف اللعبة!";
+                // استدعاء الكلاس الموجود داخل GameBoyCore.js
+                gb = new GameBoyCore(canvas, romData);
+                gb.start();
+                
+                // تشغيل حلقة التحديث (Loop) لضمان استمرارية اللعبة
+                setInterval(function() {
+                    gb.run();
+                }, 16); // 60 إطار في الثانية تقريباً
+                
+            } catch (e) {
+                alert("تأكد من وجود ملف GameBoyCore.js في نفس المجلد!");
+                console.error(e);
             }
         }
 
-        // تحكم المفاتيح
-        const keyMap = {
-            up: 'up', down: 'down', left: 'left', right: 'right',
-            a: 'a', b: 'b', start: 'start', select: 'select'
-        };
+        // تحكم المفاتيح (Mapping) حسب مكتبة GameBoyCore
+        // 0:Up, 1:Down, 2:Left, 3:Right, 4:A, 5:B, 6:Select, 7:Start
+        function p(i) { if(gb) gb.JoyPadEvent(i, true); }
+        function r(i) { if(gb) gb.JoyPadEvent(i, false); }
 
-        function p(k) { if(emulator) emulator.buttonPressed(keyMap[k]); }
-        function r(k) { if(emulator) emulator.buttonReleased(keyMap[k]); }
+        // دعم لوحة مفاتيح الكمبيوتر
+        window.onkeydown = (e) => {
+            const keys = {ArrowUp:0, ArrowDown:1, ArrowLeft:2, ArrowRight:3, z:4, x:5, Shift:6, Enter:7};
+            if(keys[e.key] !== undefined) p(keys[e.key]);
+        };
+        window.onkeyup = (e) => {
+            const keys = {ArrowUp:0, ArrowDown:1, ArrowLeft:2, ArrowRight:3, z:4, x:5, Shift:6, Enter:7};
+            if(keys[e.key] !== undefined) r(keys[e.key]);
+        };
     </script>
 </body>
 </html>
