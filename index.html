@@ -3,154 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GBC Fixed Emulator</title>
-    
+    <title>GBC Final Fix</title>
     <script src="GameBoyCore.js"></script>
-
     <style>
-        body { 
-            background: #1a1a1a; color: white; font-family: sans-serif; 
-            display: flex; flex-direction: column; align-items: center; 
-            margin: 0; padding: 10px; overflow: hidden; touch-action: none;
-        }
-        
-        #drop-zone { 
-            width: 90%; max-width: 350px; border: 2px dashed #555; 
-            background: #2a2a2a; padding: 15px; border-radius: 10px; 
-            text-align: center; margin-bottom: 15px; cursor: pointer; 
-        }
-
-        /* حاوية الجهاز لضبط الحدود */
-        .gb-wrapper {
-            background: #7d57bb; 
-            padding: 20px; 
-            border-radius: 15px 15px 50px 15px; 
-            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
-            width: 280px; /* حجم ثابت للجسم */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* إطار الشاشة الأسود */
-        .screen-frame {
-            background: #333;
-            width: 240px;
-            height: 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            overflow: hidden; /* يمنع خروج الشاشة عن الحدود */
-        }
-
-        /* الشاشة الفعلية */
-        #mainCanvas {
-            background: #8bac0f;
-            width: 160px; /* الحجم الأصلي */
-            height: 144px;
-            image-rendering: pixelated;
-            transform: scale(1.3); /* تكبير الشاشة داخل الإطار فقط */
-        }
-
-        .controls { display: flex; justify-content: space-between; width: 100%; padding: 0 10px; }
+        body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; touch-action: none; }
+        #drop-zone { width: 90%; max-width: 350px; border: 2px dashed #555; background: #2a2a2a; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px; cursor: pointer; font-size: 14px; }
+        .gb-body { background: #7d57bb; padding: 20px; border-radius: 15px 15px 50px 15px; box-shadow: 0 10px 20px #000; width: 280px; display: flex; flex-direction: column; align-items: center; }
+        .screen-container { background: #333; width: 240px; height: 190px; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 20px; overflow: hidden; border: 4px solid #222; }
+        canvas { background: #8bac0f; width: 160px; height: 144px; image-rendering: pixelated; transform: scale(1.2); }
+        .controls { display: flex; justify-content: space-between; width: 100%; }
         .dpad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); }
-        .d-btn { background: #222; border: none; color: #444; cursor: pointer; font-size: 18px; border-radius: 4px; }
-        
+        .btn-d { background: #222; border: none; color: #444; font-size: 20px; cursor: pointer; border-radius: 5px; }
+        .btn-d:active { background: #333; color: #666; }
         .actions { display: flex; gap: 10px; transform: rotate(-15deg); margin-top: 20px; }
-        .btn-ab { width: 45px; height: 45px; background: #a00; border-radius: 50%; border: none; color: white; font-weight: bold; box-shadow: 2px 2px 0 #500; }
-        
-        .sys-btns { display: flex; gap: 15px; margin-top: 20px; }
-        .pill { width: 40px; height: 10px; background: #555; border-radius: 10px; border: none; transform: rotate(-15deg); }
-        .label { font-size: 8px; color: #ddd; text-align: center; }
+        .btn-a { width: 45px; height: 45px; background: #a00; border-radius: 50%; border: none; color: white; font-weight: bold; box-shadow: 2px 2px 0 #500; cursor: pointer; }
+        .sys { display: flex; gap: 15px; margin-top: 25px; }
+        .pill { width: 40px; height: 10px; background: #555; border-radius: 10px; border: none; transform: rotate(-15deg); cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <div id="drop-zone">اسحب اللعبة هنا (GBC/GB)</div>
+    <div id="drop-zone">اسحب اللعبة هنا (ملف .gbc أو .gb)</div>
 
-    <div class="gb-wrapper">
-        <div class="screen-frame">
+    <div class="gb-body">
+        <div class="screen-container">
             <canvas id="mainCanvas" width="160" height="144"></canvas>
         </div>
 
         <div class="controls">
             <div class="dpad">
-                <div></div><button class="d-btn" onpointerdown="p(0)" onpointerup="r(0)">▲</button><div></div>
-                <button class="d-btn" onpointerdown="p(2)" onpointerup="r(2)">◀</button><div></div><button class="d-btn" onpointerdown="p(3)" onpointerup="r(3)">▶</button>
-                <div></div><button class="d-btn" onpointerdown="p(1)" onpointerup="r(1)">▼</button><div></div>
+                <div></div><button class="btn-d" onpointerdown="p(0)" onpointerup="r(0)">▲</button><div></div>
+                <button class="btn-d" onpointerdown="p(2)" onpointerup="r(2)">◀</button><div></div><button class="btn-d" onpointerdown="p(3)" onpointerup="r(3)">▶</button>
+                <div></div><button class="btn-d" onpointerdown="p(1)" onpointerup="r(1)">▼</button><div></div>
             </div>
-
             <div class="actions">
-                <button class="btn-ab" onpointerdown="p(5)" onpointerup="r(5)">B</button>
-                <button class="btn-ab" onpointerdown="p(4)" onpointerup="r(4)">A</button>
+                <button class="btn-a" onpointerdown="p(5)" onpointerup="r(5)">B</button>
+                <button class="btn-a" onpointerdown="p(4)" onpointerup="r(4)">A</button>
             </div>
         </div>
 
-        <div class="sys-btns">
-            <div><button class="pill" onpointerdown="p(6)" onpointerup="r(6)"></button><div class="label">SELECT</div></div>
-            <div><button class="pill" onpointerdown="p(7)" onpointerup="r(7)"></button><div class="label">START</div></div>
+        <div class="sys">
+            <button class="pill" onpointerdown="p(6)" onpointerup="r(6)"></button>
+            <button class="pill" onpointerdown="p(7)" onpointerup="r(7)"></button>
         </div>
     </div>
 
     <script>
-        let gb;
+        // تعريف الإعدادات التي تتوقعها المكتبة
+        var settings = [true, false, false, true, true, false, false, false, true, true, false, true];
+        var gb;
         const canvas = document.getElementById('mainCanvas');
 
-        // إصلاح طريقة قراءة الملف لتناسب GameBoyCore
-        const zone = document.getElementById('drop-zone');
-        zone.ondragover = (e) => { e.preventDefault(); zone.style.borderColor = "#00ff00"; };
-        zone.ondragleave = () => { zone.style.borderColor = "#555"; };
-        zone.ondrop = (e) => {
+        document.getElementById('drop-zone').ondragover = e => e.preventDefault();
+        document.getElementById('drop-zone').ondrop = e => {
             e.preventDefault();
             const file = e.dataTransfer.files[0];
             const reader = new FileReader();
-            
-            reader.onload = (ev) => {
-                // المحرك القديم يحتاج السلسلة الثنائية (Binary String)
-                startEmulator(ev.target.result);
-                zone.style.display = 'none';
+            reader.onload = ev => {
+                try {
+                    // المكتبة تحتاج مسح الكانفاس أولاً
+                    const ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, 160, 144);
+                    
+                    // تشغيل المحاكي
+                    gb = new GameBoyCore(canvas, ev.target.result);
+                    gb.start();
+                    
+                    // وظيفة التحديث المستمر
+                    function tick() {
+                        if (gb) {
+                            gb.run();
+                            setTimeout(tick, 16); // استخدام setTimeout لضمان التوافق مع المحرك القديم
+                        }
+                    }
+                    tick();
+                    document.getElementById('drop-zone').style.display = 'none';
+                } catch (err) {
+                    alert("خطأ داخلي في المحرك: " + err.message);
+                }
             };
-            // هذه هي الطريقة التي يتوقعها محرك GameBoyCore.js
             reader.readAsBinaryString(file);
         };
 
-        function startEmulator(romData) {
-            try {
-                // تهيئة المحاكي
-                gb = new GameBoyCore(canvas, romData);
-                
-                // تفعيل الإعدادات الأساسية لضمان السرعة
-                gb.start();
-                
-                // حلقة التشغيل التلقائي
-                function gameLoop() {
-                    if (gb) {
-                        gb.run();
-                        requestAnimationFrame(gameLoop);
-                    }
-                }
-                gameLoop();
-                
-            } catch (e) {
-                console.error(e);
-                alert("حدث خطأ في المحرك. تأكد من أن ملف اللعبة سليم.");
+        // دالة الضغط
+        function p(i) {
+            if (gb && gb.JoyPadEvent) {
+                gb.JoyPadEvent(i, true);
             }
         }
 
-        // أزرار التحكم
-        function p(i) { if(gb) gb.JoyPadEvent(i, true); }
-        function r(i) { if(gb) gb.JoyPadEvent(i, false); }
+        // دالة الرفع
+        function r(i) {
+            if (gb && gb.JoyPadEvent) {
+                gb.JoyPadEvent(i, false);
+            }
+        }
 
-        // كيبورد الكمبيوتر
-        window.onkeydown = (e) => {
-            const keys = {ArrowUp:0, ArrowDown:1, ArrowLeft:2, ArrowRight:3, z:4, x:5, Shift:6, Enter:7};
-            if(keys[e.key] !== undefined) p(keys[e.key]);
+        // دعم الكيبورد
+        window.onkeydown = e => {
+            const m = {ArrowUp:0, ArrowDown:1, ArrowLeft:2, ArrowRight:3, z:4, x:5, Shift:6, Enter:7};
+            if(m[e.key] !== undefined) p(m[e.key]);
         };
-        window.onkeyup = (e) => {
-            const keys = {ArrowUp:0, ArrowDown:1, ArrowLeft:2, ArrowRight:3, z:4, x:5, Shift:6, Enter:7};
-            if(keys[e.key] !== undefined) r(keys[e.key]);
+        window.onkeyup = e => {
+            const m = {ArrowUp:0, ArrowDown:1, ArrowLeft:2, ArrowRight:3, z:4, x:5, Shift:6, Enter:7};
+            if(m[e.key] !== undefined) r(m[e.key]);
         };
     </script>
 </body>
