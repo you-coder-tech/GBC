@@ -3,38 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GBC Final Fix</title>
+    <title>GBC Pro Fix</title>
     <script src="GameBoyCore.js"></script>
     <style>
         body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; touch-action: none; }
-        #drop-zone { width: 90%; max-width: 350px; border: 2px dashed #555; background: #2a2a2a; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px; cursor: pointer; font-size: 14px; }
-        .gb-body { background: #7d57bb; padding: 20px; border-radius: 15px 15px 50px 15px; box-shadow: 0 10px 20px #000; width: 280px; display: flex; flex-direction: column; align-items: center; }
-        .screen-container { background: #333; width: 240px; height: 190px; display: flex; align-items: center; justify-content: center; border-radius: 8px; margin-bottom: 20px; overflow: hidden; border: 4px solid #222; }
+        #drop-zone { width: 90%; max-width: 350px; border: 2px dashed #555; background: #222; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 15px; cursor: pointer; border-color: #7d57bb; }
+        .gb-case { background: #7d57bb; padding: 25px; border-radius: 15px 15px 50px 15px; box-shadow: 0 10px 25px #000; width: 280px; }
+        .screen-border { background: #333; width: 240px; height: 180px; display: flex; align-items: center; justify-content: center; border-radius: 5px; margin-bottom: 20px; overflow: hidden; margin-left: auto; margin-right: auto; }
         canvas { background: #8bac0f; width: 160px; height: 144px; image-rendering: pixelated; transform: scale(1.2); }
         .controls { display: flex; justify-content: space-between; width: 100%; }
         .dpad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); }
-        .btn-d { background: #222; border: none; color: #444; font-size: 20px; cursor: pointer; border-radius: 5px; }
-        .btn-d:active { background: #333; color: #666; }
-        .actions { display: flex; gap: 10px; transform: rotate(-15deg); margin-top: 20px; }
-        .btn-a { width: 45px; height: 45px; background: #a00; border-radius: 50%; border: none; color: white; font-weight: bold; box-shadow: 2px 2px 0 #500; cursor: pointer; }
-        .sys { display: flex; gap: 15px; margin-top: 25px; }
-        .pill { width: 40px; height: 10px; background: #555; border-radius: 10px; border: none; transform: rotate(-15deg); cursor: pointer; }
+        .btn-dir { background: #222; border: none; color: #444; font-size: 20px; cursor: pointer; border-radius: 5px; }
+        .actions { display: flex; gap: 10px; transform: rotate(-15deg); margin-top: 15px; }
+        .btn-a { width: 45px; height: 45px; background: #a00; border-radius: 50%; border: none; color: white; font-weight: bold; box-shadow: 2px 2px 0 #500; }
+        .sys-btns { display: flex; gap: 15px; margin-top: 25px; justify-content: center; }
+        .pill { width: 40px; height: 10px; background: #555; border-radius: 10px; border: none; transform: rotate(-15deg); }
     </style>
 </head>
 <body>
 
-    <div id="drop-zone">اسحب اللعبة هنا (ملف .gbc أو .gb)</div>
+    <div id="drop-zone">اسحب ملف اللعبة (.gbc) هنا</div>
 
-    <div class="gb-body">
-        <div class="screen-container">
+    <div class="gb-case">
+        <div class="screen-border">
             <canvas id="mainCanvas" width="160" height="144"></canvas>
         </div>
 
         <div class="controls">
             <div class="dpad">
-                <div></div><button class="btn-d" onpointerdown="p(0)" onpointerup="r(0)">▲</button><div></div>
-                <button class="btn-d" onpointerdown="p(2)" onpointerup="r(2)">◀</button><div></div><button class="btn-d" onpointerdown="p(3)" onpointerup="r(3)">▶</button>
-                <div></div><button class="btn-d" onpointerdown="p(1)" onpointerup="r(1)">▼</button><div></div>
+                <div></div><button class="btn-dir" onpointerdown="p(0)" onpointerup="r(0)">▲</button><div></div>
+                <button class="btn-dir" onpointerdown="p(2)" onpointerup="r(2)">◀</button><div></div><button class="btn-dir" onpointerdown="p(3)" onpointerup="r(3)">▶</button>
+                <div></div><button class="btn-dir" onpointerdown="p(1)" onpointerup="r(1)">▼</button><div></div>
             </div>
             <div class="actions">
                 <button class="btn-a" onpointerdown="p(5)" onpointerup="r(5)">B</button>
@@ -42,64 +41,61 @@
             </div>
         </div>
 
-        <div class="sys">
+        <div class="sys-btns">
             <button class="pill" onpointerdown="p(6)" onpointerup="r(6)"></button>
             <button class="pill" onpointerdown="p(7)" onpointerup="r(7)"></button>
         </div>
     </div>
 
     <script>
-        // تعريف الإعدادات التي تتوقعها المكتبة
+        // إعدادات ضرورية للمحرك GameBoyCore ليعمل
         var settings = [true, false, false, true, true, false, false, false, true, true, false, true];
         var gb;
         const canvas = document.getElementById('mainCanvas');
 
-        document.getElementById('drop-zone').ondragover = e => e.preventDefault();
+        // منع المتصفح من فتح الملف
+        window.ondragover = e => e.preventDefault();
+        window.ondrop = e => e.preventDefault();
+
         document.getElementById('drop-zone').ondrop = e => {
             e.preventDefault();
             const file = e.dataTransfer.files[0];
             const reader = new FileReader();
-            reader.onload = ev => {
+
+            reader.onload = function(event) {
+                const result = event.target.result;
                 try {
-                    // المكتبة تحتاج مسح الكانفاس أولاً
-                    const ctx = canvas.getContext('2d');
-                    ctx.clearRect(0, 0, 160, 144);
-                    
-                    // تشغيل المحاكي
-                    gb = new GameBoyCore(canvas, ev.target.result);
+                    // تحويل النتيجة لمتغير يفهمه المحرك القديم
+                    let romData = "";
+                    const bytes = new Uint8Array(result);
+                    for (let i = 0; i < bytes.byteLength; i++) {
+                        romData += String.fromCharCode(bytes[i]);
+                    }
+
+                    // تشغيل المحرك
+                    gb = new GameBoyCore(canvas, romData);
                     gb.start();
-                    
-                    // وظيفة التحديث المستمر
-                    function tick() {
+
+                    // دورة التشغيل
+                    function run() {
                         if (gb) {
                             gb.run();
-                            setTimeout(tick, 16); // استخدام setTimeout لضمان التوافق مع المحرك القديم
+                            setTimeout(run, 14); // سرعة متوسطة لضمان الاستقرار
                         }
                     }
-                    tick();
+                    run();
                     document.getElementById('drop-zone').style.display = 'none';
                 } catch (err) {
-                    alert("خطأ داخلي في المحرك: " + err.message);
+                    alert("خطأ في قراءة المحرك: " + err.message);
                 }
             };
-            reader.readAsBinaryString(file);
+            // قراءة كـ ArrayBuffer ثم تحويلها يدوي لضمان عدم تلف البيانات
+            reader.readAsArrayBuffer(file);
         };
 
-        // دالة الضغط
-        function p(i) {
-            if (gb && gb.JoyPadEvent) {
-                gb.JoyPadEvent(i, true);
-            }
-        }
+        function p(i) { if(gb) gb.JoyPadEvent(i, true); }
+        function r(i) { if(gb) gb.JoyPadEvent(i, false); }
 
-        // دالة الرفع
-        function r(i) {
-            if (gb && gb.JoyPadEvent) {
-                gb.JoyPadEvent(i, false);
-            }
-        }
-
-        // دعم الكيبورد
         window.onkeydown = e => {
             const m = {ArrowUp:0, ArrowDown:1, ArrowLeft:2, ArrowRight:3, z:4, x:5, Shift:6, Enter:7};
             if(m[e.key] !== undefined) p(m[e.key]);
