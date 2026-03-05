@@ -3,21 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GBC Pro Fix</title>
+    <title>GBC Ultimate Fix</title>
+    
+    <script>
+        // 1. يجب تعريف الإعدادات قبل تحميل المحرك
+        var settings = [
+            true,  // [0] Auto-frameskip
+            false, // [1] Skip boot (إقلاع سريع)
+            false, // [2] Sound enabled
+            true,  // [3] GBC color enabled
+            true,  // [4] Serial connection
+            false, // [5] RTC enabled
+            false, // [6] Typed arrays disabled
+            false, // [7] ROM access control
+            true,  // [8] Use local storage
+            true,  // [9] Palette enabled
+            false, // [10] Override color
+            true   // [11] Audio buffering
+        ];
+
+        // 2. دوال مساعدة يحتاجها المحرك القديم
+        function cout(message, priority) {
+            console.log("Emulator: " + message);
+        }
+    </script>
+
     <script src="GameBoyCore.js"></script>
+
     <style>
         body { background: #1a1a1a; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 10px; touch-action: none; }
-        #drop-zone { width: 90%; max-width: 350px; border: 2px dashed #555; background: #222; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 15px; cursor: pointer; border-color: #7d57bb; }
+        #drop-zone { width: 90%; max-width: 350px; border: 2px dashed #7d57bb; background: #222; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 15px; cursor: pointer; color: #7d57bb; }
         .gb-case { background: #7d57bb; padding: 25px; border-radius: 15px 15px 50px 15px; box-shadow: 0 10px 25px #000; width: 280px; }
-        .screen-border { background: #333; width: 240px; height: 180px; display: flex; align-items: center; justify-content: center; border-radius: 5px; margin-bottom: 20px; overflow: hidden; margin-left: auto; margin-right: auto; }
+        .screen-border { background: #333; width: 240px; height: 180px; display: flex; align-items: center; justify-content: center; border-radius: 5px; margin-bottom: 20px; overflow: hidden; margin-left: auto; margin-right: auto; border: 4px solid #222; }
         canvas { background: #8bac0f; width: 160px; height: 144px; image-rendering: pixelated; transform: scale(1.2); }
         .controls { display: flex; justify-content: space-between; width: 100%; }
         .dpad { display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(3, 40px); }
-        .btn-dir { background: #222; border: none; color: #444; font-size: 20px; cursor: pointer; border-radius: 5px; }
+        .btn-dir { background: #222; border: none; color: #444; font-size: 20px; cursor: pointer; border-radius: 5px; box-shadow: 0 3px #000; }
+        .btn-dir:active { transform: translateY(2px); box-shadow: 0 1px #000; }
         .actions { display: flex; gap: 10px; transform: rotate(-15deg); margin-top: 15px; }
-        .btn-a { width: 45px; height: 45px; background: #a00; border-radius: 50%; border: none; color: white; font-weight: bold; box-shadow: 2px 2px 0 #500; }
+        .btn-a { width: 45px; height: 45px; background: #a00; border-radius: 50%; border: none; color: white; font-weight: bold; box-shadow: 2px 2px 0 #500; cursor: pointer; }
         .sys-btns { display: flex; gap: 15px; margin-top: 25px; justify-content: center; }
-        .pill { width: 40px; height: 10px; background: #555; border-radius: 10px; border: none; transform: rotate(-15deg); }
+        .pill { width: 40px; height: 10px; background: #555; border-radius: 10px; border: none; transform: rotate(-15deg); cursor: pointer; box-shadow: 1px 1px 0 #000; }
     </style>
 </head>
 <body>
@@ -42,55 +68,47 @@
         </div>
 
         <div class="sys-btns">
-            <button class="pill" onpointerdown="p(6)" onpointerup="r(6)"></button>
-            <button class="pill" onpointerdown="p(7)" onpointerup="r(7)"></button>
+            <div><button class="pill" onpointerdown="p(6)" onpointerup="r(6)"></button><div style="font-size:7px; color:#ddd; text-align:center">SELECT</div></div>
+            <div><button class="pill" onpointerdown="p(7)" onpointerup="r(7)"></button><div style="font-size:7px; color:#ddd; text-align:center">START</div></div>
         </div>
     </div>
 
     <script>
-        // إعدادات ضرورية للمحرك GameBoyCore ليعمل
-        var settings = [true, false, false, true, true, false, false, false, true, true, false, true];
         var gb;
         const canvas = document.getElementById('mainCanvas');
 
-        // منع المتصفح من فتح الملف
-        window.ondragover = e => e.preventDefault();
-        window.ondrop = e => e.preventDefault();
-
+        document.getElementById('drop-zone').ondragover = e => e.preventDefault();
         document.getElementById('drop-zone').ondrop = e => {
             e.preventDefault();
             const file = e.dataTransfer.files[0];
             const reader = new FileReader();
 
             reader.onload = function(event) {
-                const result = event.target.result;
                 try {
-                    // تحويل النتيجة لمتغير يفهمه المحرك القديم
-                    let romData = "";
-                    const bytes = new Uint8Array(result);
-                    for (let i = 0; i < bytes.byteLength; i++) {
-                        romData += String.fromCharCode(bytes[i]);
-                    }
+                    // المحرك يحتاج البيانات كـ String
+                    const romData = event.target.result;
+                    
+                    // تنظيف أي نسخة قديمة
+                    if (gb) gb.stop();
 
-                    // تشغيل المحرك
+                    // بدء المحرك
                     gb = new GameBoyCore(canvas, romData);
                     gb.start();
 
-                    // دورة التشغيل
+                    // تشغيل الأنيميشن
                     function run() {
                         if (gb) {
                             gb.run();
-                            setTimeout(run, 14); // سرعة متوسطة لضمان الاستقرار
+                            setTimeout(run, 16); 
                         }
                     }
                     run();
                     document.getElementById('drop-zone').style.display = 'none';
                 } catch (err) {
-                    alert("خطأ في قراءة المحرك: " + err.message);
+                    alert("خطأ في المحرك: " + err.message);
                 }
             };
-            // قراءة كـ ArrayBuffer ثم تحويلها يدوي لضمان عدم تلف البيانات
-            reader.readAsArrayBuffer(file);
+            reader.readAsBinaryString(file); // الطريقة المثالية لهذا المحرك تحديداً
         };
 
         function p(i) { if(gb) gb.JoyPadEvent(i, true); }
