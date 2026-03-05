@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GBC Emulator - إصدار الإصلاح</title>
+    
+    <script src="https://unpkg.com/jsgbc@1.0.1/dist/jsgbc.umd.js"></script>
+    
+    <style>
+        body { font-family: sans-serif; background: #121212; color: white; text-align: center; margin: 0; padding: 10px; overflow-x: hidden; }
+        .box { border: 2px dashed #444; background: #1e1e1e; padding: 15px; margin: 10px auto; width: 90%; max-width: 400px; border-radius: 10px; cursor: pointer; }
+        .box:hover { border-color: #007bff; }
+        .box.ready { border-color: #28a745; background: #1a2e1a; }
+        #screen-container { background: #000; width: 320px; height: 288px; margin: 15px auto; border: 5px solid #333; display: flex; align-items: center; justify-content: center; position: relative; }
+        canvas { width: 100%; height: 100%; image-rendering: pixelated; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; max-width: 400px; margin: 0 auto; user-select: none; }
+        .btn { background: #333; color: white; border: none; padding: 15px; border-radius: 50%; font-weight: bold; touch-action: none; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: #555; transform: scale(0.9); }
+        .btn-red { background: #b30000; width: 60px; height: 60px; }
+        .status-msg { font-size: 12px; color: #aaa; margin-top: 5px; }
+        #error-log { color: #ff4d4d; font-size: 14px; margin: 10px; display: none; background: #331111; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <h2>محاكي GBC المحمول</h2>
+    
+    <div id="error-log">خطأ: لم يتم تحميل مكتبة المحاكي. تأكد من اتصال الإنترنت أو جرب متصفحاً آخر.</div>
+
+    <div id="bios-zone" class="box">
+        <b>1. اسحب ملف BIOS هنا</b>
+        <div class="status-msg" id="bios-info">اختياري (بدونه سيعمل المحاكي مباشرة)</div>
+    </div>
+
+    <div id="rom-zone" class="box">
+        <b>2. اسحب لعبة (.gbc / .gb) هنا</b>
+        <div class="status-msg" id="rom-info">بانتظار ملف اللعبة...</div>
+    </div>
+
+    <div id="screen-container">
+        <canvas id="main-canvas"></canvas>
+    </div>
+
+    <div class="controls">
+        <div style="display:grid; grid-template-columns: repeat(3, 45px);">
+            <div></div><button class="btn" onpointerdown="ctrl('up',1)" onpointerup="ctrl('up',0)">↑</button><div></div>
+            <button class="btn" onpointerdown="ctrl('left',1)" onpointerup="ctrl('left',0)">←</button><div></div><button class="btn" onpointerdown="ctrl('right',1)" onpointerup="ctrl('right',0)">→</button>
+            <div></div><button class="btn" onpointerdown="ctrl('down',1)" onpointerup="ctrl('down',0)">↓</button><div></div>
+        </div>
+        
+        <div style="display:flex; flex-direction:column; justify-content:center; gap:10px;">
+            <button class="btn" style="border-radius:10px; padding:5px;" onpointerdown="ctrl('select',1)" onpointerup="ctrl('select',0)">SELECT</button>
+            <button class="btn" style="border-radius:10px; padding:5px;" onpointerdown="ctrl('start',1)" onpointerup="ctrl('start',0)">START</button>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button class="btn btn-red" onpointerdown="ctrl('b',1)" onpointerup="ctrl('b',0)">B</button>
+            <button class="btn btn-red" onpointerdown="ctrl('a',1)" onpointerup="ctrl('a',0)">A</button>
+        </div>
+    </div>
+
+<script>
+    let gameboy = null;
+    let biosData = null;
+
+    // التأكد من تحميل المكتبة
+    window.onload = () => {
+        if (typeof jsgbc === 'undefined') {
+            document.getElementById('error-log').style.display = 'block';
+            console.error("المكتبة jsgbc لم يتم تحميلها!");
+        }
+    };
+
+    function setupDragDrop(id, isBios) {
+        const el = document.getElementById(id);
+        el.ondragover = (e) => { e.preventDefault(); el.style.borderColor = '#007bff'; };
+        el.ondragleave = () => { el.style.borderColor = '#444'; };
+        el.ondrop = (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const data = new Uint8Array(evt.target.result);
+                if (isBios) {
+                    biosData = data;
+                    document.getElementById('bios-info').innerText = "✅ تم تحميل BIOS: " + file.name;
+                    el.classList.add('ready');
+                } else {
+                    document.getElementById('rom-info').innerText = "⏳ جاري التشغيل: " + file.name;
+                    el.classList.add('ready');
+                    startGame(data);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        };
+    }
+
+    setupDragDrop('bios-zone', true);
+    setupDragDrop('rom-zone', false);
+
+    function startGame(rom) {
+        if (typeof jsgbc === 'undefined') {
+            alert("المحاكي غير جاهز. تأكد من الإنترنت وأعد تحميل الصفحة.");
+            return;
+        }
+
+        try {
+            if (gameboy) gameboy.stop();
+
+            gameboy = new jsgbc.GameBoy({
+                lcd: { canvas: document.getElementById('main-canvas') },
+                bios: biosData
+            });
+
+            gameboy.loadCartridge(rom);
+            gameboy.start();
+        } catch (err) {
+            alert("خطأ أثناء تشغيل اللعبة: " + err.message);
+        }
+    }
+
+    // التحكم
+    const keyMap = {
+        up: jsgbc.Key.UP, down: jsgbc.Key.DOWN, left: jsgbc.Key.LEFT, right: jsgbc.Key.RIGHT,
+        a: jsgbc.Key.A, b: jsgbc.Key.B, start: jsgbc.Key.START, select: jsgbc.Key.SELECT
+    };
+
+    function ctrl(k, down) {
+        if (!gameboy) return;
+        if (down) gameboy.input.keyDown(keyMap[k]);
+        else gameboy.input.keyUp(keyMap[k]);
+    }
+</script>
+</body>
+</html>
