@@ -3,140 +3,133 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GBC Offline Pro</title>
+    <title>GBC Master Emulator</title>
+    
+    <script src="binjgb.js"></script>
+    
     <style>
-        :root { --main: #61de2a; --bg: #0f0f0f; --panel: #1a1a1a; }
-        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; overflow: hidden; }
+        :root { --bg: #121212; --accent: #ffcc00; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; align-items: center; touch-action: none; }
         
-        /* مناطق الرفع */
-        .drop-area { display: flex; gap: 10px; width: 95%; max-width: 400px; margin: 10px 0; }
-        .zone { flex: 1; border: 2px dashed #444; background: var(--panel); padding: 10px; border-radius: 12px; text-align: center; font-size: 12px; cursor: pointer; transition: 0.2s; }
-        .zone.hover { border-color: var(--main); background: #222; }
-        .zone.done { border-style: solid; border-color: var(--main); color: var(--main); }
+        .upload-area { display: flex; gap: 10px; width: 90%; max-width: 400px; margin: 15px 0; }
+        .drop-zone { flex: 1; border: 2px dashed #444; background: #1e1e1e; padding: 15px; border-radius: 12px; text-align: center; cursor: pointer; font-size: 12px; }
+        .drop-zone.active { border-color: var(--accent); background: #222; }
 
-        /* الشاشة */
-        #game-screen { width: 320px; height: 288px; background: #000; border: 8px solid #333; border-radius: 15px; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.5); margin-top: 5px; }
+        #screen-wrapper { 
+            width: 320px; height: 288px; background: #000; 
+            border: 10px solid #333; border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            overflow: hidden;
+        }
         canvas { width: 100%; height: 100%; image-rendering: pixelated; }
 
-        /* أزرار التحكم */
-        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; width: 95%; max-width: 420px; margin-top: auto; padding-bottom: 30px; }
+        .controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; width: 90%; max-width: 400px; margin-top: 20px; }
         .dpad { display: grid; grid-template-columns: repeat(3, 50px); grid-template-rows: repeat(3, 50px); }
-        .btn { background: #2a2a2a; border: none; color: white; border-radius: 50%; font-weight: bold; cursor: pointer; user-select: none; touch-action: none; -webkit-tap-highlight-color: transparent; box-shadow: 0 4px #000; }
-        .btn:active { transform: translateY(2px); box-shadow: 0 2px #000; background: #333; }
+        .btn { background: #333; border: none; color: white; border-radius: 50%; cursor: pointer; font-weight: bold; box-shadow: 0 4px #000; -webkit-tap-highlight-color: transparent; }
+        .btn:active { transform: translateY(2px); box-shadow: 0 2px #000; background: #444; }
         
-        .btn-action { width: 60px; height: 60px; background: #9b1c1c; font-size: 20px; }
-        .btn-action.a { background: #c0392b; }
-        .btn-special { height: 30px; border-radius: 20px; font-size: 11px; background: #444; margin-top: 20px; }
+        .btn-action { width: 60px; height: 60px; background: #d32f2f; font-size: 20px; }
+        .btn-sys { height: 30px; border-radius: 15px; font-size: 10px; background: #555; }
         
-        .label { font-size: 10px; color: #666; margin-top: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        #status { font-size: 11px; color: #888; margin-top: 10px; }
     </style>
 </head>
 <body>
 
-    <div class="drop-area">
-        <div id="bios-zone" class="zone"><b>BIOS</b><div id="b-st">اسحب هنا</div></div>
-        <div id="rom-zone" class="zone"><b>ROM (اللعبة)</b><div id="r-st">اسحب ملف .gbc</div></div>
+    <h2 style="margin-top:20px; color:var(--accent)">GBC OFFLINE</h2>
+
+    <div class="upload-area">
+        <div id="bios-drop" class="drop-zone"><b>BIOS</b><br>اسحب هنا</div>
+        <div id="rom-drop" class="drop-zone"><b>ROM</b><br>اسحب اللعبة</div>
     </div>
 
-    <div id="game-screen">
-        <canvas id="canvas"></canvas>
+    <div id="screen-wrapper">
+        <canvas id="emulator-canvas"></canvas>
     </div>
+
+    <div id="status">جاهز للاستخدام...</div>
 
     <div class="controls">
         <div class="dpad">
-            <div></div><button class="btn" onpointerdown="k('up',1)" onpointerup="k('up',0)">▲</button><div></div>
-            <button class="btn" onpointerdown="k('left',1)" onpointerup="k('left',0)">◀</button><div></div><button class="btn" onpointerdown="k('right',1)" onpointerup="k('right',0)">▶</button>
-            <div></div><button class="btn" onpointerdown="k('down',1)" onpointerup="k('down',0)">▼</button><div></div>
+            <div></div><button class="btn" onpointerdown="sendKey('up',1)" onpointerup="sendKey('up',0)">▲</button><div></div>
+            <button class="btn" onpointerdown="sendKey('left',1)" onpointerup="sendKey('left',0)">◀</button><div></div><button class="btn" onpointerdown="sendKey('right',1)" onpointerup="sendKey('right',0)">▶</button>
+            <div></div><button class="btn" onpointerdown="sendKey('down',1)" onpointerup="sendKey('down',0)">▼</button><div></div>
         </div>
 
-        <div style="display:flex; flex-direction:column; gap:10px;">
-            <button class="btn btn-special" onpointerdown="k('select',1)" onpointerup="k('select',0)">SELECT</button>
-            <button class="btn btn-special" onpointerdown="k('start',1)" onpointerup="k('start',0)">START</button>
+        <div style="display:flex; flex-direction:column; justify-content:center; gap:10px;">
+            <button class="btn btn-sys" onpointerdown="sendKey('select',1)" onpointerup="sendKey('select',0)">SELECT</button>
+            <button class="btn btn-sys" onpointerdown="sendKey('start',1)" onpointerup="sendKey('start',0)">START</button>
         </div>
 
-        <div style="display:flex; gap:15px; align-items:center; justify-content:center;">
-            <button class="btn btn-action" onpointerdown="k('b',1)" onpointerup="k('b',0)">B</button>
-            <button class="btn btn-action a" onpointerdown="k('a',1)" onpointerup="k('a',0)">A</button>
+        <div style="display:flex; gap:15px; align-items:center;">
+            <button class="btn btn-action" onpointerdown="sendKey('b',1)" onpointerup="sendKey('b',0)">B</button>
+            <button class="btn btn-action" style="background:#b71c1c" onpointerdown="sendKey('a',1)" onpointerup="sendKey('a',0)">A</button>
         </div>
     </div>
 
     <script>
-        // سنقوم بتحميل المكتبة من رابط CDN عند أول تشغيل فقط وتخزينها محلياً 
-        // أو يمكنك لصق كود jsgbc.umd.js بالكامل هنا مكان هذا السطر.
-        // لضمان العمل 100%، سأستخدم طريقة التحميل الديناميكي مع حفظ الحالة.
-        
-        const libURL = "https://unpkg.com/jsgbc@1.0.1/dist/jsgbc.umd.js";
-        
-        function loadLibrary(callback) {
-            if (window.jsgbc) return callback();
-            const script = document.createElement('script');
-            script.src = libURL;
-            script.onload = callback;
-            script.onerror = () => alert("فشل تحميل قلب المحاكي. تأكد من الإنترنت لأول مرة فقط.");
-            document.head.appendChild(script);
-        }
-
         let emulator = null;
         let biosData = null;
 
-        function initZone(id, isBios) {
-            const el = document.getElementById(id);
-            el.ondragover = (e) => { e.preventDefault(); el.classList.add('hover'); };
-            el.ondragleave = () => el.classList.remove('hover');
-            el.ondrop = (e) => {
+        function initDropZone(id, isBios) {
+            const zone = document.getElementById(id);
+            zone.ondragover = (e) => { e.preventDefault(); zone.classList.add('active'); };
+            zone.ondragleave = () => zone.classList.remove('active');
+            zone.ondrop = (e) => {
                 e.preventDefault();
-                el.classList.remove('hover');
+                zone.classList.remove('active');
                 const file = e.dataTransfer.files[0];
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     const data = new Uint8Array(ev.target.result);
                     if (isBios) {
                         biosData = data;
-                        document.getElementById('b-st').innerText = "✅ تم";
-                        el.classList.add('done');
+                        zone.innerHTML = "✅ BIOS محمل";
                     } else {
-                        document.getElementById('r-st').innerText = "🎮 " + file.name;
-                        el.classList.add('done');
-                        loadLibrary(() => startEmulator(data));
+                        zone.innerHTML = "🎮 " + file.name;
+                        startEmulator(data);
                     }
                 };
                 reader.readAsArrayBuffer(file);
             };
         }
 
-        initZone('bios-zone', true);
-        initZone('rom-zone', false);
+        initDropZone('bios-drop', true);
+        initDropZone('rom-drop', false);
 
-        function startEmulator(rom) {
-            if (emulator) emulator.stop();
-            
-            emulator = new jsgbc.GameBoy({
-                lcd: { canvas: document.getElementById('canvas') },
-                bios: biosData
-            });
-            emulator.loadCartridge(rom);
-            emulator.start();
+        async function startEmulator(romData) {
+            const canvas = document.getElementById('emulator-canvas');
+            // التأكد من تهيئة المكتبة
+            try {
+                const module = await Binjgb();
+                emulator = new module.Emulator(romData, biosData);
+                
+                function loop() {
+                    if (!emulator) return;
+                    emulator.runFrame();
+                    const frameData = emulator.getFrameBuffer();
+                    // كود رسم الفريم على الكانفاس (يعتمد على واجهة المكتبة)
+                    renderToCanvas(frameData); 
+                    requestAnimationFrame(loop);
+                }
+                loop();
+                document.getElementById('status').innerText = "جاري التشغيل...";
+            } catch (err) {
+                console.error(err);
+                document.getElementById('status').innerText = "خطأ في التشغيل!";
+            }
         }
 
-        function k(key, down) {
+        // خريطة المفاتيح
+        function sendKey(key, isPressed) {
             if (!emulator) return;
-            const map = {
-                up: jsgbc.Key.UP, down: jsgbc.Key.DOWN, left: jsgbc.Key.LEFT, right: jsgbc.Key.RIGHT,
-                a: jsgbc.Key.A, b: jsgbc.Key.B, start: jsgbc.Key.START, select: jsgbc.Key.SELECT
+            const keys = {
+                up: 0x40, down: 0x80, left: 0x20, right: 0x10,
+                a: 0x01, b: 0x02, select: 0x04, start: 0x08
             };
-            if (down) emulator.input.keyDown(map[key]);
-            else emulator.input.keyUp(map[key]);
+            if (isPressed) emulator.setKeyDown(keys[key]);
+            else emulator.setKeyUp(keys[key]);
         }
-
-        // دعم لوحة المفاتيح أيضاً
-        window.onkeydown = (e) => {
-            const keys = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', z:'a', x:'b', Enter:'start', Shift:'select' };
-            if(keys[e.key]) k(keys[e.key], 1);
-        };
-        window.onkeyup = (e) => {
-            const keys = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right', z:'a', x:'b', Enter:'start', Shift:'select' };
-            if(keys[e.key]) k(keys[e.key], 0);
-        };
     </script>
 </body>
 </html>
